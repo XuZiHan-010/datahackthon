@@ -42,6 +42,13 @@ const config = {
             },
             tooltip: {
                 enabled: true,
+            },
+            title: {
+                display: true,
+                text: 'Annual Trends in RTC, SSC, and Fire Incidents (2015-2022)',
+                font: {
+                    size: 16
+                }
             }
         },
         scales: {
