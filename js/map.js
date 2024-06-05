@@ -4,6 +4,7 @@ var map = L.map('map').setView([52.4862, -1.8904], 10); // Centered on West Midl
 // Add OpenStreetMap tiles
 L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
     maxZoom: 18,
+    minZoom: 10,
     attribution: '© OpenStreetMap contributors'
 }).addTo(map);
 
@@ -38,7 +39,7 @@ function style(feature) {
 }
 
 // Load GeoJSON data for the boundaries of the boroughs
-$.getJSON('./data/West_Midlands.geojson', function(data) {
+$.getJSON('https://raw.githubusercontent.com/XuZiHan-010/datahackthon/main/data/West_Midlands.geojson', function(data) {
     boroughLayer = L.geoJson(data, {
         style: style,
         onEachFeature: function (feature, layer) {
@@ -55,8 +56,8 @@ function getIncidentColor(type) {
         case 'SSC': return '#4daf4a';
     }
 }
-const baseRadius = 2; 
-const referenceZoom = 10;
+const baseRadius = 2.7; 
+const referenceZoom = 20;
 // Function to style incident points based on zoom level
 function incidentStyle(feature) {
     var currentZoom = map.getZoom();
@@ -78,17 +79,24 @@ function updateMap(year, type) {
     }
     incidentLayer = L.geoJson(geojsonData, {
         filter: function(feature, layer) {
-            return (year === 'all' || feature.properties.year === parseInt(year)) &&
-                   (type === 'all' || feature.properties.type === type);
+            var yearMatch = (year === 'all' || feature.properties.year === parseInt(year));
+            var typeMatch = (type === 'all' || feature.properties.type === type);
+            return yearMatch && typeMatch;
         },
         pointToLayer: function(feature, latlng) {
             return L.circleMarker(latlng, incidentStyle(feature));
+        },
+        onEachFeature: function(feature, layer) {
+            layer.bindPopup('<strong>Type:</strong> ' + feature.properties.type + '<br>' +
+                            '<strong>Year:</strong> ' + feature.properties.year + '<br>' +
+                            '<strong>Call Seconds:</strong> ' + feature.properties.call_seconds + '<br>' +
+                            '<strong>Reaction Seconds:</strong> ' + feature.properties.reaction_seconds);
         }
     }).addTo(map);
 }
 
 // Load GeoJSON data for incidents and populate the filters
-$.getJSON('./data/West_Midlands_Incidents.geojson', function(data) {
+$.getJSON('./data/West_Midlands_Incidents.json', function(data) {
     geojsonData = data;
     var years = new Set();
     var types = new Set();
@@ -153,3 +161,28 @@ legend.addTo(map);
 map.on('zoomend', function() {
     updateMap(document.getElementById('years').value, document.getElementById('types').value);
 });
+function startYearAnimation() {
+    var years = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022]; // Define the range of years
+    var index = 0; // Start at the first year
+
+    var interval = setInterval(function() {
+        document.getElementById('years').value = years[index]; // Set the year
+        updateMap(years[index], document.getElementById('types').value); // Update the map with the new year
+
+        index++; // Move to the next year
+        if (index >= years.length) { // If the last year is reached
+            clearInterval(interval); // Stop the interval
+        }
+    }, 1000); // Change year every 2000 milliseconds (2 seconds)
+}
+
+// Optionally, you can add a button to start the animation
+var startButton = L.control({position: 'topright'});
+
+startButton.onAdd = function (map) {
+    var div = L.DomUtil.create('div', 'start-button');
+    div.innerHTML = '<button onclick="startYearAnimation()">Play Animation</button>';
+    return div;
+};
+
+startButton.addTo(map);
