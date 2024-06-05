@@ -1,7 +1,5 @@
-// Initialize the map
 var map = L.map('map').setView([52.4862, -1.8904], 10); // Centered on West Midlands
 
-// Add OpenStreetMap tiles
 L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
     maxZoom: 18,
     minZoom: 10,
@@ -38,15 +36,29 @@ function style(feature) {
     };
 }
 
+// Function to load GeoJSON data with a backup URL
+function loadData(url, backupUrl, callback) {
+    $.getJSON(url, callback).fail(function() {
+        console.log("Failed to load primary URL, trying backup URL...");
+        $.getJSON(backupUrl, callback).fail(function() {
+            console.error("Failed to load data from both primary and backup URLs.");
+        });
+    });
+}
+
 // Load GeoJSON data for the boundaries of the boroughs
-$.getJSON('https://raw.githubusercontent.com/XuZiHan-010/datahackthon/main/data/West_Midlands.geojson', function(data) {
-    boroughLayer = L.geoJson(data, {
-        style: style,
-        onEachFeature: function (feature, layer) {
-            layer.bindPopup('<strong>' + feature.properties.ctyua16nm + '</strong>');
-        }
-    }).addTo(map);
-});
+loadData(
+    'https://raw.githubusercontent.com/XuZiHan-010/datahackthon/main/data/West_Midlands.geojson',
+    './data/West_Midlands.geojson', // Backup local path
+    function(data) {
+        boroughLayer = L.geoJson(data, {
+            style: style,
+            onEachFeature: function (feature, layer) {
+                layer.bindPopup('<strong>' + feature.properties.ctyua16nm + '</strong>');
+            }
+        }).addTo(map);
+    }
+);
 
 // Function to get color based on incident type
 function getIncidentColor(type) {
@@ -56,8 +68,10 @@ function getIncidentColor(type) {
         case 'SSC': return '#4daf4a';
     }
 }
+
 const baseRadius = 2.7; 
 const referenceZoom = 20;
+
 // Function to style incident points based on zoom level
 function incidentStyle(feature) {
     var currentZoom = map.getZoom();
@@ -71,6 +85,46 @@ function incidentStyle(feature) {
         fillOpacity: 0.8
     };
 }
+
+// Load json data points for fire accidents through github link first if fail try local one 
+loadData(
+    'https://raw.githubusercontent.com/XuZiHan-010/datahackthon/main/data/West_Midlands_Incidents.json',
+    './data/West_Midlands_Incidents.json', // Backup local path
+    function(data) {
+        geojsonData = data;
+        var years = new Set();
+        var types = new Set();
+
+        data.features.forEach(function(feature) {
+            years.add(feature.properties.year);
+            types.add(feature.properties.type);
+        });
+
+        var yearSelector = document.getElementById('years');
+        var typeSelector = document.getElementById('types');
+
+        years = Array.from(years).sort();
+        types = Array.from(types).sort();
+
+        years.forEach(function(year) {
+            var option = document.createElement('option');
+            option.value = year;
+            option.text = year;
+            yearSelector.appendChild(option);
+        });
+
+        types.forEach(function(type) {
+            var option = document.createElement('option');
+            option.value = type;
+            option.text = type;
+            typeSelector.appendChild(option);
+        });
+
+        document.getElementById('years').value = '2015';
+        document.getElementById('types').value = 'all';
+        updateMap('2015', 'all');
+    }
+);
 
 // Function to update the map based on the selected filters
 function updateMap(year, type) {
@@ -94,42 +148,6 @@ function updateMap(year, type) {
         }
     }).addTo(map);
 }
-
-// Load GeoJSON data for incidents and populate the filters
-$.getJSON('./data/West_Midlands_Incidents.json', function(data) {
-    geojsonData = data;
-    var years = new Set();
-    var types = new Set();
-
-    data.features.forEach(function(feature) {
-        years.add(feature.properties.year);
-        types.add(feature.properties.type);
-    });
-
-    var yearSelector = document.getElementById('years');
-    var typeSelector = document.getElementById('types');
-
-    years = Array.from(years).sort();
-    types = Array.from(types).sort();
-
-    years.forEach(function(year) {
-        var option = document.createElement('option');
-        option.value = year;
-        option.text = year;
-        yearSelector.appendChild(option);
-    });
-
-    types.forEach(function(type) {
-        var option = document.createElement('option');
-        option.value = type;
-        option.text = type;
-        typeSelector.appendChild(option);
-    });
-
-    document.getElementById('years').value = '2015';
-    document.getElementById('types').value = 'all';
-    updateMap('2015', 'all');
-});
 
 // Add event listeners for filters
 document.getElementById('years').addEventListener('change', function() {
@@ -161,6 +179,7 @@ legend.addTo(map);
 map.on('zoomend', function() {
     updateMap(document.getElementById('years').value, document.getElementById('types').value);
 });
+
 function startYearAnimation() {
     var years = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022]; // Define the range of years
     var index = 0; // Start at the first year
@@ -173,7 +192,7 @@ function startYearAnimation() {
         if (index >= years.length) { // If the last year is reached
             clearInterval(interval); // Stop the interval
         }
-    }, 1000); // Change year every 2000 milliseconds (2 seconds)
+    }, 1000); 
 }
 
 // Optionally, you can add a button to start the animation

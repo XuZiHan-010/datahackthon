@@ -1,11 +1,11 @@
 (function() {
     // Set the dimensions and margins of the graph
-    var margin = {top: 80, right: 30, bottom: 50, left: 80}, // Adjusted margins for better layout
-    width = 560 - margin.left - margin.right,
-    height = 500 - margin.top - margin.bottom;
+    var margin = {top: 20, right: 20, bottom: 40, left: 50}, // Adjusted margins for better layout
+    width = 420 - margin.left - margin.right,
+    height = 300 - margin.top - margin.bottom;
     
     // Append the svg object to the body of the page
-    var svg = d3.select("#airquality")
+    var svg = d3.select("#averagedata")
     .append("svg")
     .attr("width", width + margin.left + margin.right)
     .attr("height", height + margin.top + margin.bottom)

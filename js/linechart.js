@@ -4,7 +4,7 @@ const data = {
     labels: ['2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022'],
     datasets: [
         {
-            label: 'RTC',
+            label: 'Road Traffic Collision',
             data: [2264,2437,2462,2641,2785,2288,2553,2725],
             borderColor: 'rgba(75, 192, 192, 1)',
             backgroundColor: 'rgba(75, 192, 192, 0.2)',
@@ -12,7 +12,7 @@ const data = {
             tension: 0.1
         },
         {
-            label: 'SSC',
+            label: 'Special Servie Call',
             data: [2452,2797,3701,4085,3975,3669,4327,4786],
             borderColor: 'rgba(153, 102, 255, 1)',
             backgroundColor: 'rgba(153, 102, 255, 0.2)',

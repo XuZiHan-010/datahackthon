@@ -9,8 +9,11 @@
           #map {
             height: 100vh;
         }
-        #chart-container {
-            height: 50vh;
+        #second-chart-container{
+            height:15vh;
+        }
+        #chart-container{
+            height: 45vh;
         }
         #filters {
             position: absolute;
@@ -78,7 +81,14 @@
             </div>
             <div class="col-md-4">
                 <div id="chart-container" class="my-2">
-                    <canvas id="myLineChart" height="350px" width="500px"></canvas>
+                    <canvas id="myLineChart" width="450px" height="300px"></canvas>
+                </div>
+
+                <div id="second-chart-container" class="my-2">
+                    <div style="text-align: center;">
+                        <select id="selectButton"></select>
+                    </div>
+                    <div id="averagedata" ></div>
                 </div>
             </div>
         </div>
@@ -89,5 +99,8 @@
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script src="js/map.js"></script>
     <script src="js/linechart.js"></script>
+    <script charset="utf-8" src="https://d3js.org/d3.v6.js"></script>
+	<script charset="utf-8" src="https://cdnjs.cloudflare.com/ajax/libs/dimple/2.3.0/dimple.latest.min.js"></script>
+    <script src="js/d3.js"></script>
 </body>
 </html>
