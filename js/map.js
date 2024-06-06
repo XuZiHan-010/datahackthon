@@ -1,4 +1,4 @@
-var map = L.map('map').setView([52.4862, -1.8904], 10); 
+var map = L.map('map').setView([52.4862, -1.8904], 10);
 
 L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
     maxZoom: 18,
@@ -71,7 +71,7 @@ function getIncidentColor(type) {
     }
 }
 
-const baseRadius = 2.7; 
+const baseRadius = 2.7;
 const referenceZoom = 20;
 
 // Function to style incident points based on zoom level
@@ -241,22 +241,40 @@ function loadStations(url) {
         }
     });
 }
+
 function updateStationMarkers(year, type) {
     stationData.forEach(function(station) {
         var latLng = convertToLatLng(parseFloat(station.Easting), parseFloat(station.Northing));
+        
+        var drivingSeconds;
+        if (type === 'all') {
+            drivingSeconds = station['Overall_avg_seconds_' + year];
+        } else {
+            drivingSeconds = station[type.toUpperCase() + '_avg_seconds_' + year];
+        }
+
+        var iconUrl;
+        if (drivingSeconds > 400) {
+            iconUrl = './image/fire_icon.png'; // Use the appropriate path for your icon
+        } else if (drivingSeconds > 250) {
+            iconUrl = './image/image.png'; // Use the appropriate path for your icon
+        } else {
+            iconUrl = './image/fire_station.png'; // Use the appropriate path for your icon
+        }
+
         var marker = L.marker([latLng[1], latLng[0]], {
             icon: L.icon({
-                iconUrl: './image/fire_station.png', 
+                iconUrl: iconUrl,
                 iconSize: [20, 20]
             })
         }).addTo(map);
 
         var popupContent = '<strong>' + station['Station name'] + '</strong><br>PRL Count: ' + station.PRL_Count + '<br>BRV Count: ' + station.BRV_Count;
         if (type === 'all') {
-            popupContent += '<br>Average Driving Seconds (' + year + '): ' + station['Overall_avg_seconds_' + year] + '<br>Average Response Seconds (' + year + '): ' + station['Overall_response_avg_seconds_' + year];
+            popupContent += '<br>Average Driving Seconds (' + year + '): ' + drivingSeconds + '<br>Average Reaction Seconds (' + year + '): ' + station['Overall_response_avg_seconds_' + year];
         } else {
-            popupContent += '<br>Average Driving Seconds (' + year + ' ' + type + '): ' + station[type.toUpperCase() + '_avg_seconds_' + year];
-            popupContent += '<br>Average Response Seconds (' + year + ' ' + type + '): ' + station[type.toUpperCase() + '_response_avg_seconds_' + year];
+            popupContent += '<br>Average Driving Seconds (' + year + ' ' + type + '): ' + drivingSeconds;
+            popupContent += '<br>Average Reaction Seconds (' + year + ' ' + type + '): ' + station[type.toUpperCase() + '_response_avg_seconds_' + year];
         }
         marker.bindPopup(popupContent);
     });
