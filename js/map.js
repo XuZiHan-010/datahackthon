@@ -9,6 +9,8 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
 var geojsonData;
 var boroughLayer;
 var incidentLayer;
+var animationInterval;
+var isPaused = false;
 
 // Function to get color based on borough
 function getColor(borough) {
@@ -183,25 +185,69 @@ map.on('zoomend', function() {
 function startYearAnimation() {
     var years = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022]; // Define the range of years
     var index = 0; // Start at the first year
+    isPaused = false;
 
-    var interval = setInterval(function() {
-        document.getElementById('years').value = years[index]; // Set the year
-        updateMap(years[index], document.getElementById('types').value); // Update the map with the new year
+    if (animationInterval) {
+        clearInterval(animationInterval);
+    }
 
-        index++; // Move to the next year
-        if (index >= years.length) { // If the last year is reached
-            clearInterval(interval); // Stop the interval
+    animationInterval = setInterval(function() {
+        if (!isPaused) {
+            document.getElementById('years').value = years[index]; // Set the year
+            updateMap(years[index], document.getElementById('types').value); // Update the map with the new year
+
+            index++; // Move to the next year
+            if (index >= years.length) { // If the last year is reached
+                index = 0; // Restart from the first year
+            }
+        } else {
+            clearInterval(animationInterval);
         }
     }, 1000); 
 }
 
-// Optionally, you can add a button to start the animation
-var startButton = L.control({position: 'topright'});
+function pauseYearAnimation() {
+    isPaused = true;
+}
 
-startButton.onAdd = function (map) {
-    var div = L.DomUtil.create('div', 'start-button');
-    div.innerHTML = '<button onclick="startYearAnimation()">Play Animation</button>';
+// Add buttons to control the animation
+var controlButtons = L.control({position: 'topright'});
+
+controlButtons.onAdd = function (map) {
+    var div = L.DomUtil.create('div', 'control-buttons');
+    div.innerHTML = '<button onclick="startYearAnimation()">Play Animation</button><button onclick="pauseYearAnimation()">Stop Animation</button>';
     return div;
 };
 
-startButton.addTo(map);
+controlButtons.addTo(map);
+
+// Function to convert Easting/Northing to Lat/Lng
+function convertToLatLng(easting, northing) {
+    var firstProjection = "+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +datum=OSGB36 +units=m +no_defs";
+    var secondProjection = proj4.defs('EPSG:4326');
+    return proj4(firstProjection, secondProjection, [easting, northing]);
+}
+
+// Load the CSV data for the fire stations
+function loadStations(url) {
+    $.get(url, function(data) {
+        if ($.csv && $.csv.toObjects) {
+            var stations = $.csv.toObjects(data);
+            stations.forEach(function(station) {
+                var latLng = convertToLatLng(parseFloat(station.Easting), parseFloat(station.Northing));
+                var marker = L.marker([latLng[1], latLng[0]], {
+                    icon: L.icon({
+                        iconUrl: './image/fire_station.png', // path to the fire station icon
+                        iconSize: [20, 20]
+                    })
+                }).addTo(map);
+                marker.bindPopup('<strong>' + station['Station name'] + '</strong><br>PRL Count: ' + station.PRL_Count + '<br>BRV Count: ' + station.BRV_Count);
+            });
+        } else {
+            console.error("CSV parsing library not loaded.");
+        }
+    });
+}
+
+loadStations('./data/station_locations.csv');
+// Call the function
