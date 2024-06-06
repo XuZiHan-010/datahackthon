@@ -146,7 +146,8 @@ function updateMap(year, type) {
             layer.bindPopup('<strong>Type:</strong> ' + feature.properties.type + '<br>' +
                             '<strong>Year:</strong> ' + feature.properties.year + '<br>' +
                             '<strong>Call Seconds:</strong> ' + feature.properties.call_seconds + '<br>' +
-                            '<strong>Reaction Seconds:</strong> ' + feature.properties.reaction_seconds);
+                            '<strong>Reaction Seconds:</strong> ' + feature.properties.reaction_seconds + '<br>' +
+                            '<strong>Driving Seconds:</strong> ' + feature.properties.driving_seconds);
         }
     }).addTo(map);
 }
