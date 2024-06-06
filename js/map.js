@@ -1,4 +1,4 @@
-var map = L.map('map').setView([52.4862, -1.8904], 10); // Centered on West Midlands
+var map = L.map('map').setView([52.4862, -1.8904], 10); 
 
 L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
     maxZoom: 18,
@@ -150,6 +150,7 @@ function updateMap(year, type) {
                             '<strong>Driving Seconds:</strong> ' + feature.properties.driving_seconds);
         }
     }).addTo(map);
+    updateStationMarkers(year, type);
 }
 
 // Add event listeners for filters
@@ -201,8 +202,6 @@ function startYearAnimation() {
             if (index >= years.length) { // If the last year is reached
                 index = 0; // Restart from the first year
             }
-        } else {
-            clearInterval(animationInterval);
         }
     }, 1000); 
 }
@@ -230,25 +229,37 @@ function convertToLatLng(easting, northing) {
 }
 
 // Load the CSV data for the fire stations
+var stationData;
+
 function loadStations(url) {
     $.get(url, function(data) {
         if ($.csv && $.csv.toObjects) {
-            var stations = $.csv.toObjects(data);
-            stations.forEach(function(station) {
-                var latLng = convertToLatLng(parseFloat(station.Easting), parseFloat(station.Northing));
-                var marker = L.marker([latLng[1], latLng[0]], {
-                    icon: L.icon({
-                        iconUrl: './image/fire_station.png', // path to the fire station icon
-                        iconSize: [20, 20]
-                    })
-                }).addTo(map);
-                marker.bindPopup('<strong>' + station['Station name'] + '</strong><br>PRL Count: ' + station.PRL_Count + '<br>BRV Count: ' + station.BRV_Count);
-            });
+            stationData = $.csv.toObjects(data);
+            updateStationMarkers(document.getElementById('years').value, document.getElementById('types').value);
         } else {
             console.error("CSV parsing library not loaded.");
         }
     });
 }
+function updateStationMarkers(year, type) {
+    stationData.forEach(function(station) {
+        var latLng = convertToLatLng(parseFloat(station.Easting), parseFloat(station.Northing));
+        var marker = L.marker([latLng[1], latLng[0]], {
+            icon: L.icon({
+                iconUrl: './image/fire_station.png', 
+                iconSize: [20, 20]
+            })
+        }).addTo(map);
 
-loadStations('./data/station_locations.csv');
-// Call the function
+        var popupContent = '<strong>' + station['Station name'] + '</strong><br>PRL Count: ' + station.PRL_Count + '<br>BRV Count: ' + station.BRV_Count;
+        if (type === 'all') {
+            popupContent += '<br>Average Driving Seconds (' + year + '): ' + station['Overall_avg_seconds_' + year] + '<br>Average Response Seconds (' + year + '): ' + station['Overall_response_avg_seconds_' + year];
+        } else {
+            popupContent += '<br>Average Driving Seconds (' + year + ' ' + type + '): ' + station[type.toUpperCase() + '_avg_seconds_' + year];
+            popupContent += '<br>Average Response Seconds (' + year + ' ' + type + '): ' + station[type.toUpperCase() + '_response_avg_seconds_' + year];
+        }
+        marker.bindPopup(popupContent);
+    });
+}
+
+loadStations('./data/updated_station_locations.csv');

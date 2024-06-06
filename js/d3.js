@@ -96,7 +96,7 @@ function initializeChart(data) {
                     display: true,
                     text: 'Average Driving Seconds for Fire, SSC, and RTC (2015-2022)',
                     font: {
-                        size: 16
+                        size: 14
                     }
                 }
             },
