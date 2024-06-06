@@ -163,9 +163,9 @@ document.getElementById('types').addEventListener('change', function() {
 });
 
 // Add legend to the map at the left bottom position
-var legend = L.control({position: 'bottomleft'});
+var incidentLegend = L.control({position: 'bottomleft'});
 
-legend.onAdd = function (map) {
+incidentLegend.onAdd = function (map) {
     var div = L.DomUtil.create('div', 'legend');
     var labels = ['<strong>Incident Types</strong>'];
     var types = ['Fire', 'Road Traffic Collision', 'Special Service Call'];
@@ -179,7 +179,23 @@ legend.onAdd = function (map) {
     return div;
 };
 
-legend.addTo(map);
+incidentLegend.addTo(map);
+
+var stationLegend = L.control({position: 'bottomright'});
+
+stationLegend.onAdd = function (map) {
+    var div = L.DomUtil.create('div', 'legend');
+    var labels = ['<strong>Station Average Driving Seconds</strong>'];
+    labels.push('<div class="legend-item"><img src="./image/fire_station.png" style="width: 20px; height: 20px;">&nbspAverage Driving Seconds< 250s</div>');
+    labels.push('<div class="legend-item"><img src="./image/image.png" style="width: 20px; height: 20px;">&nbspAverage Driving Seconds: 250s - 400s</div>');
+    labels.push('<div class="legend-item"><img src="./image/fire_icon.png" style="width: 20px; height: 20px;">&nbspAverage Driving Seconds> 400s</div>');
+    
+    div.innerHTML = labels.join('');
+    return div;
+};
+
+stationLegend.addTo(map);
+
 map.on('zoomend', function() {
     updateMap(document.getElementById('years').value, document.getElementById('types').value);
 });
