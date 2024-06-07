@@ -8,7 +8,11 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
 
 var geojsonData;
 var boroughLayer;
+var stationLayer;
 var incidentLayer;
+var stationData;
+var incidentMarkers = {};
+var selectedStations = {};
 var animationInterval;
 var isPaused = false;
 
@@ -56,7 +60,7 @@ loadData(
         boroughLayer = L.geoJson(data, {
             style: style,
             onEachFeature: function (feature, layer) {
-                layer.bindPopup('<strong>' + feature.properties.ctyua16nm + '</strong>');
+                // layer.bindPopup('<strong>' + feature.properties.ctyua16nm + '</strong>');
             }
         }).addTo(map);
     }
@@ -130,27 +134,17 @@ loadData(
 
 // Function to update the map based on the selected filters
 function updateMap(year, type) {
-    if (incidentLayer) {
-        map.removeLayer(incidentLayer);
+    if (stationLayer) {
+        map.removeLayer(stationLayer);
     }
-    incidentLayer = L.geoJson(geojsonData, {
-        filter: function(feature, layer) {
-            var yearMatch = (year === 'all' || feature.properties.year === parseInt(year));
-            var typeMatch = (type === 'all' || feature.properties.type === type);
-            return yearMatch && typeMatch;
-        },
-        pointToLayer: function(feature, latlng) {
-            return L.circleMarker(latlng, incidentStyle(feature));
-        },
-        onEachFeature: function(feature, layer) {
-            layer.bindPopup('<strong>Type:</strong> ' + feature.properties.type + '<br>' +
-                            '<strong>Year:</strong> ' + feature.properties.year + '<br>' +
-                            '<strong>Call Seconds:</strong> ' + feature.properties.call_seconds + '<br>' +
-                            '<strong>Reaction Seconds:</strong> ' + feature.properties.reaction_seconds + '<br>' +
-                            '<strong>Driving Seconds:</strong> ' + feature.properties.driving_seconds);
-        }
-    }).addTo(map);
+
     updateStationMarkers(year, type);
+
+    // Clear any displayed incident markers
+    for (var station in incidentMarkers) {
+        map.removeLayer(incidentMarkers[station]);
+        incidentMarkers[station].clearLayers();
+    }
 }
 
 // Add event listeners for filters
@@ -185,10 +179,10 @@ var stationLegend = L.control({position: 'bottomright'});
 
 stationLegend.onAdd = function (map) {
     var div = L.DomUtil.create('div', 'legend');
-    var labels = ['<strong>Station Average Driving Seconds</strong>'];
-    labels.push('<div class="legend-item"><img src="./image/fire_station.png" style="width: 20px; height: 20px;">&nbspAverage Driving Seconds< 250s</div>');
-    labels.push('<div class="legend-item"><img src="./image/image.png" style="width: 20px; height: 20px;">&nbspAverage Driving Seconds: 250s - 400s</div>');
-    labels.push('<div class="legend-item"><img src="./image/fire_icon.png" style="width: 20px; height: 20px;">&nbspAverage Driving Seconds> 400s</div>');
+    var labels = ['<strong>Station Annual Average Driving Seconds</strong>'];
+    labels.push('<div class="legend-item"><img src="./image/fire_station_250.png" style="width: 20px; height: 20px;">&nbspAverage Driving Seconds< 250s</div>');
+    labels.push('<div class="legend-item"><img src="./image/fire_station_250_400.png" style="width: 20px; height: 20px;">&nbspAverage Driving Seconds: 250s - 400s</div>');
+    labels.push('<div class="legend-item"><img src="./image/fire_station_400.png" style="width: 20px; height: 20px;">&nbspAverage Driving Seconds> 400s</div>');
     
     div.innerHTML = labels.join('');
     return div;
@@ -197,7 +191,7 @@ stationLegend.onAdd = function (map) {
 stationLegend.addTo(map);
 
 map.on('zoomend', function() {
-    updateMap(document.getElementById('years').value, document.getElementById('types').value);
+    // Do nothing to keep the incident points on zoom
 });
 
 function startYearAnimation() {
@@ -211,8 +205,14 @@ function startYearAnimation() {
 
     animationInterval = setInterval(function() {
         if (!isPaused) {
-            document.getElementById('years').value = years[index]; // Set the year
-            updateMap(years[index], document.getElementById('types').value); // Update the map with the new year
+            var year = years[index];
+            document.getElementById('years').value = year; // Set the year
+            updateMap(year, document.getElementById('types').value); // Update the map with the new year
+
+            // Update incident points for selected stations
+            for (var station in selectedStations) {
+                toggleIncidentsForStation(station, year, document.getElementById('types').value);
+            }
 
             index++; // Move to the next year
             if (index >= years.length) { // If the last year is reached
@@ -231,12 +231,21 @@ var controlButtons = L.control({position: 'topright'});
 
 controlButtons.onAdd = function (map) {
     var div = L.DomUtil.create('div', 'control-buttons');
-    div.innerHTML = '<button onclick="startYearAnimation()">Play Animation</button><button onclick="pauseYearAnimation()">Stop Animation</button>';
+    div.innerHTML = '<button onclick="startYearAnimation()">Play Animation</button><button onclick="pauseYearAnimation()">Stop Animation</button><button onclick="clearAllPoints()">Clear Points</button>';
     return div;
 };
 
 controlButtons.addTo(map);
 
+function clearAllPoints() {
+    for (var station in incidentMarkers) {
+        map.removeLayer(incidentMarkers[station]);
+        incidentMarkers[station].clearLayers();
+    }
+    selectedStations = {}; // Clear the selected stations
+}
+
+// Function to convert Easting/Northing to Lat/Lng
 // Function to convert Easting/Northing to Lat/Lng
 function convertToLatLng(easting, northing) {
     var firstProjection = "+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +datum=OSGB36 +units=m +no_defs";
@@ -245,8 +254,6 @@ function convertToLatLng(easting, northing) {
 }
 
 // Load the CSV data for the fire stations
-var stationData;
-
 function loadStations(url) {
     $.get(url, function(data) {
         if ($.csv && $.csv.toObjects) {
@@ -259,9 +266,15 @@ function loadStations(url) {
 }
 
 function updateStationMarkers(year, type) {
+    if (stationLayer) {
+        map.removeLayer(stationLayer);
+    }
+
+    stationLayer = L.layerGroup();
+
     stationData.forEach(function(station) {
         var latLng = convertToLatLng(parseFloat(station.Easting), parseFloat(station.Northing));
-        
+
         var drivingSeconds;
         if (type === 'all') {
             drivingSeconds = station['Overall_avg_seconds_' + year];
@@ -271,11 +284,11 @@ function updateStationMarkers(year, type) {
 
         var iconUrl;
         if (drivingSeconds > 400) {
-            iconUrl = './image/fire_icon.png'; // Use the appropriate path for your icon
+            iconUrl = './image/fire_station_400.png'; // Use the appropriate path for your icon
         } else if (drivingSeconds > 250) {
-            iconUrl = './image/image.png'; // Use the appropriate path for your icon
+            iconUrl = './image/fire_station_250_400.png'; // Use the appropriate path for your icon
         } else {
-            iconUrl = './image/fire_station.png'; // Use the appropriate path for your icon
+            iconUrl = './image/fire_station_250.png'; // Use the appropriate path for your icon
         }
 
         var marker = L.marker([latLng[1], latLng[0]], {
@@ -283,7 +296,7 @@ function updateStationMarkers(year, type) {
                 iconUrl: iconUrl,
                 iconSize: [20, 20]
             })
-        }).addTo(map);
+        }).addTo(stationLayer);
 
         var popupContent = '<strong>' + station['Station name'] + '</strong><br>PRL Count: ' + station.PRL_Count + '<br>BRV Count: ' + station.BRV_Count;
         if (type === 'all') {
@@ -292,8 +305,62 @@ function updateStationMarkers(year, type) {
             popupContent += '<br>Average Driving Seconds (' + year + ' ' + type + '): ' + drivingSeconds;
             popupContent += '<br>Average Reaction Seconds (' + year + ' ' + type + '): ' + station[type.toUpperCase() + '_response_avg_seconds_' + year];
         }
-        marker.bindPopup(popupContent);
+
+        marker.on('mouseover', function() {
+            this.bindPopup(popupContent).openPopup();
+        });
+
+        marker.on('mouseout', function() {
+            this.closePopup();
+        });
+
+        marker.on('click', function() {
+            toggleIncidentsForStation(station['Station name'], year, type);
+            selectedStations[station['Station name']] = true; // Add station to selected stations
+        });
+
+        incidentMarkers[station['Station name']] = L.layerGroup();
     });
+
+    stationLayer.addTo(map);
+}
+
+function toggleIncidentsForStation(stationName, year, type) {
+    if (incidentMarkers[stationName].getLayers().length > 0) {
+        // If incidents are already shown, remove them
+        map.removeLayer(incidentMarkers[stationName]);
+        incidentMarkers[stationName].clearLayers();
+        delete selectedStations[stationName]; // Remove station from selected stations
+    } else {
+        // Otherwise, add the incidents
+        var filteredData = {
+            type: "FeatureCollection",
+            features: geojsonData.features.filter(function(feature) {
+                var yearMatch = (year === 'all' || feature.properties.year === parseInt(year));
+                var typeMatch = (type === 'all' || feature.properties.type === type);
+                return feature.properties.callsign_station === stationName && yearMatch && typeMatch;
+            })
+        };
+
+        var incidents = L.geoJson(filteredData, {
+            pointToLayer: function(feature, latlng) {
+                return L.circleMarker(latlng, incidentStyle(feature));
+            },
+            onEachFeature: function(feature, layer) {
+                layer.bindPopup('<strong>Type:</strong> ' + feature.properties.type + '<br>' +
+                                '<strong>Year:</strong> ' + feature.properties.year + '<br>' +
+                                '<strong>Call Seconds:</strong> ' + feature.properties.call_seconds + '<br>' +
+                                '<strong>Reaction Seconds:</strong> ' + feature.properties.reaction_seconds + '<br>' +
+                                '<strong>Driving Seconds:</strong> ' + feature.properties.driving_seconds + '<br>' +
+                                '<strong>Calling Station:</strong> ' + feature.properties.callsign_station);
+            }
+        });
+
+        incidentMarkers[stationName].addLayer(incidents);
+        incidentMarkers[stationName].addTo(map);
+        selectedStations[stationName] = true; // Add station to selected stations
+    }
 }
 
 loadStations('./data/updated_station_locations.csv');
+
