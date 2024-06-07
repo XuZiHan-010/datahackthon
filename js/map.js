@@ -75,7 +75,7 @@ function getIncidentColor(type) {
     }
 }
 
-const baseRadius = 2.7;
+const baseRadius = 3;
 const referenceZoom = 20;
 
 // Function to style incident points based on zoom level
@@ -180,9 +180,9 @@ var stationLegend = L.control({position: 'bottomright'});
 stationLegend.onAdd = function (map) {
     var div = L.DomUtil.create('div', 'legend');
     var labels = ['<strong>Station Annual Average Driving Seconds</strong>'];
-    labels.push('<div class="legend-item"><img src="./image/fire_station_250.png" style="width: 20px; height: 20px;">&nbspAverage Driving Seconds< 250s</div>');
+    labels.push('<div class="legend-item"><img src="./image/fire_station_250.png" style="width: 20px; height: 20px;">&nbspAverage Driving Seconds < 250s</div>');
     labels.push('<div class="legend-item"><img src="./image/fire_station_250_400.png" style="width: 20px; height: 20px;">&nbspAverage Driving Seconds: 250s - 400s</div>');
-    labels.push('<div class="legend-item"><img src="./image/fire_station_400.png" style="width: 20px; height: 20px;">&nbspAverage Driving Seconds> 400s</div>');
+    labels.push('<div class="legend-item"><img src="./image/fire_station_400.png" style="width: 20px; height: 20px;">&nbspAverage Driving Seconds > 400s</div>');
     
     div.innerHTML = labels.join('');
     return div;
@@ -231,7 +231,12 @@ var controlButtons = L.control({position: 'topright'});
 
 controlButtons.onAdd = function (map) {
     var div = L.DomUtil.create('div', 'control-buttons');
-    div.innerHTML = '<button onclick="startYearAnimation()">Play Animation</button><button onclick="pauseYearAnimation()">Stop Animation</button><button onclick="clearAllPoints()">Clear Points</button>';
+    div.innerHTML = `
+        <button style="font-size: 12px;font-weight:bold; padding: 8px; width: 120px;" onclick="startYearAnimation()">Play Animation</button>
+        <button style="font-size: 12px;font-weight:bold; padding: 8px; width: 120px;" onclick="pauseYearAnimation()">Stop Animation</button><br>
+        <button style="font-size: 12px; font-weight:bold;padding: 8px; width: 120px;" onclick="clearAllPoints()">Clear Points</button>
+        <button style="font-size: 12px;font-weight:bold; padding: 8px; width: 120px;" onclick="showAllPoints()">Show All Points</button>
+    `;
     return div;
 };
 
@@ -362,5 +367,46 @@ function toggleIncidentsForStation(stationName, year, type) {
     }
 }
 
-loadStations('./data/updated_station_locations.csv');
+function showAllPoints() {
+    for (var station in incidentMarkers) {
+        // Remove existing layers to avoid duplication
+        map.removeLayer(incidentMarkers[station]);
+        incidentMarkers[station].clearLayers();
+    }
 
+    var year = document.getElementById('years').value;
+    var type = document.getElementById('types').value;
+
+    var filteredData = {
+        type: "FeatureCollection",
+        features: geojsonData.features.filter(function(feature) {
+            var yearMatch = (year === 'all' || feature.properties.year === parseInt(year));
+            var typeMatch = (type === 'all' || feature.properties.type === type);
+            return yearMatch && typeMatch;
+        })
+    };
+
+    for (var station in incidentMarkers) {
+        var stationName = station;
+        var stationIncidents = L.geoJson(filteredData, {
+            filter: function(feature, layer) {
+                return feature.properties.callsign_station === stationName;
+            },
+            pointToLayer: function(feature, latlng) {
+                return L.circleMarker(latlng, incidentStyle(feature));
+            },
+            onEachFeature: function(feature, layer) {
+                layer.bindPopup('<strong>Type:</strong> ' + feature.properties.type + '<br>' +
+                                '<strong>Year:</strong> ' + feature.properties.year + '<br>' +
+                                '<strong>Call Seconds:</strong> ' + feature.properties.call_seconds + '<br>' +
+                                '<strong>Reaction Seconds:</strong> ' + feature.properties.reaction_seconds + '<br>' +
+                                '<strong>Driving Seconds:</strong> ' + feature.properties.driving_seconds + '<br>' +
+                                '<strong>Calling Station:</strong> ' + feature.properties.callsign_station);
+            }
+        });
+        incidentMarkers[stationName].addLayer(stationIncidents);
+        incidentMarkers[stationName].addTo(map);
+    }
+}
+
+loadStations('./data/updated_station_locations.csv');
